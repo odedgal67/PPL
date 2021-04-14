@@ -1,30 +1,85 @@
 (define append 
   (lambda(lst1 lst2)
-      @TODO
-  )
+    (if (eq? '() lst1)
+      lst2
+      (cons (car lst1) (append (cdr lst1) lst2))))
 )
 
 (define reverse 
   (lambda (lst)
-        @TODO
+    (if (eq? '() lst)
+        lst
+        (append (reverse (cdr lst)) (list (car lst))))
+        
   )
 )
 
 (define duplicate-items
    (lambda(lst dup-count)
-      @TODO
+      (duplicate-items-helper lst dup-count 0)
+   )
+)
+
+(define duplicate-items-helper
+   (lambda(lst dup-count counter)
+      (if (eq? '() lst)
+          lst
+   
+          (if (not(= (car dup-count) counter))
+              (cons (car lst) (duplicate-items-helper lst dup-count (+ counter 1)))
+          
+              (duplicate-items-helper (cdr lst) (append (cdr dup-count) (cons(car dup-count) '())) 0))
+          )
+     
    )
 )
 
 
 (define payment
   (lambda (n coins-lst)
-        @TODO
+    (if (< n 0) 
+        0
+        (if (and (= n 0) (eq? '() coins-lst)) 
+            1
+            (if (eq? '() coins-lst)
+            0
+
+                
+
+            (+      (payment(- n (car coins-lst)) (cdr coins-lst))         (payment n (cdr coins-lst))     )))
+            
+            )
+        
   )
 )
+  
                                
 (define compose-n
   (lambda( f n)
         @TODO
   )
 )
+
+
+/*
+(define compose-n
+  (lambda( f n)
+        (if (= n 1)
+            f
+           (comp-func f (compose-n  f (- n 1))))
+    
+  )
+)
+(define (comp-func . procs)
+  (define (comp-rec arg procs)
+    (if (null? procs)
+        arg
+        ((car procs) (comp-rec arg (cdr procs)))))
+
+  comp-rec)
+
+(define f (lambda(x)(* 2 x)))
+(car '(1 1 2 3 ))
+(payment 10 '(5 5 5 5 10))
+(define mul8 (compose-n f 3))
+(mul8 3 f)*/
