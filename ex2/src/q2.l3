@@ -35,6 +35,16 @@
 )
 
 
+(define remove-duplicate
+  (lambda (lst n)
+  (if (eq? '() lst)
+      lst
+      (if (= n (car lst))
+          (remove-duplicate(cdr lst) n)
+          (cons (car lst) (remove-duplicate (cdr lst) n)))))) 
+
+
+          
 (define payment
   (lambda (n coins-lst)
     (if (< n 0) 
@@ -46,40 +56,7 @@
 
                 
 
-            (+      (payment(- n (car coins-lst)) (cdr coins-lst))         (payment n (cdr coins-lst))     )))
+            (+      (payment(- n (car coins-lst)) (cdr coins-lst))         (payment n (remove-duplicate coins-lst (car coins-lst))     )))))))
             
-            )
-        
-  )
-)
+             
   
-                               
-(define compose-n
-  (lambda( f n)
-        @TODO
-  )
-)
-
-
-/*
-(define compose-n
-  (lambda( f n)
-        (if (= n 1)
-            f
-           (comp-func f (compose-n  f (- n 1))))
-    
-  )
-)
-(define (comp-func . procs)
-  (define (comp-rec arg procs)
-    (if (null? procs)
-        arg
-        ((car procs) (comp-rec arg (cdr procs)))))
-
-  comp-rec)
-
-(define f (lambda(x)(* 2 x)))
-(car '(1 1 2 3 ))
-(payment 10 '(5 5 5 5 10))
-(define mul8 (compose-n f 3))
-(mul8 3 f)*/
