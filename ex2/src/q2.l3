@@ -60,3 +60,27 @@
             
              
   
+
+(define bind
+  (lambda(f1 f2)
+      (lambda (n)
+      (f1 (f2 n)))))
+   
+
+
+(define compose-n
+  (lambda(f n)
+        (if (= n 1)
+            f
+           (bind (compose-n  f (- n 1)) f))
+    
+  )
+)
+
+
+
+
+
+
+
+
