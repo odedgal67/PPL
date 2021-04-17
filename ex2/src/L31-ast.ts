@@ -48,7 +48,7 @@ import { Sexp, Token } from "s-expression";
 
 export type Exp = DefineExp | CExp;
 export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
-export type CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp;
+export type CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp | ClassExp;
 export type CExp =  AtomicExp | CompoundExp;
 
 export interface Program {tag: "Program"; exps: Exp[]; }
@@ -160,7 +160,7 @@ export const parseL31CompoundExp = (op: Sexp, params: Sexp[]): Result<Exp> =>
     op === "define"? parseDefine(params) :
     parseL31CompoundCExp(op, params);
 
-// CompoundCExp -> IfExp | ProcExp | LetExp | LitExp | AppExp
+// CompoundCExp -> IfExp | ProcExp | LetExp | LitExp | AppExp | ClassExp
 export const parseL31CompoundCExp = (op: Sexp, params: Sexp[]): Result<CExp> =>
     isString(op) && isSpecialForm(op) ? parseL31SpecialForm(op, params) :
     parseAppExp(op, params);
@@ -171,7 +171,8 @@ export const parseL31SpecialForm = (op: Sexp, params: Sexp[]): Result<CExp> =>
     op === "lambda" ? parseProcExp(first(params), rest(params)) :
     op === "let" ? parseLetExp(first(params), rest(params)) :
     op === "quote" ? parseLitExp(first(params)) :
-    op === "class" ? parseClassExp(first(params), rest(params) ):
+    op === "class" ? parseClassExp(first(params), rest(params)):
+  
     
     makeFailure("Never");
 
@@ -247,18 +248,27 @@ const parseLetExp = (bindings: Sexp, body: Sexp[]): Result<LetExp> => {
 
 const parseClassExp = (fields:Sexp, methods: Sexp[]) : Result<ClassExp> =>{
 
-
-    if (!isGoodBindings(methods)) {
+    if (!isGoodBindings(methods[0])) {
         return makeFailure('Malformed bindings in "class" expression');
     }
-    const vars = map(a => a[0], methods);//names of the functions
-    const varsResult = makeOk(map(makeVarDecl , vars));
+    if(isArray(fields) && allT(isString, fields))
+    {
+    const fieldsNamesResult = makeOk(map(makeVarDecl, fields)); //Result<VarDec[]>
 
-    const bodyOfFunctions = map(a=> a[1], methods); //body of the functions
-    const bodyOfFunctionsResult = mapResult(b => parseL31CExp(b), bodyOfFunctions)
-    const bindingsResult = bind(bodyOfFunctionsResult, (vals: CExp[]) => makeOk(zipWith(makeBinding, vars, vals)));
+    const nameOfFunctions = map(a => a[0], methods[0]);//names of the functions
+    
+
+    const bodyOfFunctions = map(a => a[1] , methods[0]) //body of the functions
+    const bodyOfFunctionsResult = mapResult(a => parseL31CExp(a), bodyOfFunctions)
+
+    const bindingsResult = bind(bodyOfFunctionsResult, (vals: CExp[]) => makeOk(zipWith(makeBinding, nameOfFunctions, vals)));
     return safe2((fields: VarDecl[], methods: Binding[]) => makeOk(makeClassExp(fields, methods)))
-        (varsResult,bindingsResult);
+        (fieldsNamesResult,bindingsResult);
+    }
+    else
+    {
+        return makeFailure('Invalid fields in class');
+    }
   
 }
 
