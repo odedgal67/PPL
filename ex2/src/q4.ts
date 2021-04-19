@@ -22,7 +22,7 @@ export const l2ToPython = (exp: Exp | Program): Result<string>  =>
     isLitExp(exp) ? valueToStringLit(exp) :
     isVarRef(exp) ? valueToStringVarRef(exp) :
     isProcExp(exp) ? valueToStringProc(exp) :
-    isIfExp(exp) ? makeOk(`(if ${l2ToPython(exp.test)} ${l2ToPython(exp.then)} ${l2ToPython(exp.alt)})`) :
+    isIfExp(exp) ? makeOk(`${l2ToPython(exp.then)} if ${l2ToPython(exp.test)} ${l2ToPython(exp.alt)}`) :
     isAppExp(exp) ? valueToStringApp(exp) :
     isPrimOp(exp) ? makeOk(exp.op) :
     isDefineExp(exp) ? valueToStringDefine(exp):
