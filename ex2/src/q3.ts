@@ -1,10 +1,11 @@
-import { ClassExp, ProcExp,  Exp, Program, makeIfExp, makeStrExp, makeAppExp, makeVarRef, parseL31Exp, isClassExp, isCExp, makeProgram, isAppExp, makeClassExp, isLitExp } from "./L31-ast";
+import { ClassExp, ProcExp,  Exp, Program, makeIfExp, makeStrExp, makeAppExp, makeVarRef, parseL31Exp, isClassExp, isCExp, makeProgram, isAppExp, makeClassExp, isLitExp, VarRef } from "./L31-ast";
 import { Result, makeFailure, mapResult, makeOk } from "../shared/result";
 import { Binding, VarDecl } from "./L31-ast";
 import { CExp, IfExp, makeBoolExp, makePrimOp, makeProcExp } from "./L31-ast";
 import { makeCompoundSExp } from "../imp/L3-value";
 import { bind, map } from "ramda";
-import { isAtomicExp, isDefineExp, isExp, isProgram, LitExp, makeLitExp, makeVarDecl, StrExp } from "../imp/L3-ast";
+import { isAtomicExp, isDefineExp, isExp, isProgram, LitExp, makeDefineExp, makeLitExp, makeVarDecl, StrExp } from "./L31-ast";
+import { first, rest } from "../shared/list";
 
 /*
 Purpose: Transform ClassExp to ProcExp
@@ -13,23 +14,27 @@ Type: ClassExp => ProcExp
 */
 export const class2proc = (exp: ClassExp): ProcExp =>{
 
-   return  makeProcExp(exp.fields,[makeProcExp( [makeVarDecl("msg")],[makeBody(0, "msg", exp )])]);
+   return  makeProcExp(exp.fields,[makeProcExp( [makeVarDecl('msg')],[makeBody(exp.methods )])]);
    
 }
-export const makeBody = (counter:number,msg:string, exp:ClassExp): IfExp=>
+export const makeBody = (methods:Binding[]): CExp=>
 {
-    const s:LitExp = makeLitExp("'"+ makeStrExp(exp.methods[counter].var.var).val);//maybe literal exp
-    const rands:CExp[] = [makeVarRef(msg),s];
-    if (counter===exp.methods.length-1)
+    if (methods.length===0)
     {
-  
-        return  makeIfExp(/*test*/makeAppExp(makePrimOp("eq?"),rands ),/*then*/exp.methods[counter].val ,/*alt*/makeStrExp("#f"))
+        return makeBoolExp(false);
     }
+    const s:VarRef = makeVarRef("'"+ (first(methods).var.var));
+    const rands:CExp[] = [makeVarRef('msg'),s];
     
-    return makeIfExp(/*test*/makeAppExp(makePrimOp("eq?"),rands ),/*then*/exp.methods[counter].val ,/*alt*/makeBody(counter+1, msg,exp));
+    
+    return makeIfExp(/*test*/makeAppExp(makePrimOp("eq?"),rands ),/*then*/makeAppExp(first(methods).val,[]) ,/*alt*/makeBody(rest(methods)));
     
     
 }
+
+
+
+
     
 
 /*
@@ -42,30 +47,39 @@ export const L31ToL3 = (exp: Exp | Program): Result<Exp | Program> =>
     
     if (isProgram(exp))
     {
-        bind(mapResult(L31ToL3NotProg,exp.exps), (e:Exp[])=>makeOk(makeProgram(e)));
+        return makeOk(makeProgram(map( L31ToL3Exp  ,exp.exps)))
     }
     else if (isExp(exp))
-    {
+    {       
+        return makeOk(L31ToL3Exp(exp));
         
-        return L31ToL3NotProg(exp);
-
     }
+    return makeOk(exp);
 }
 /*
+export type Exp = DefineExp | CExp;
 export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
 export type CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp | ClassExp;
 export type CExp =  AtomicExp | CompoundExp;
 */
-export const L31ToL3NotProg = (exp:Exp):Result<Exp>=>
+export const L31ToL3Exp = (exp:Exp):Exp=>
 {
     if (isDefineExp(exp))
     {
-        return L31ToL3NotProg(exp.val);
-
+        return makeDefineExp(exp.var, isClassExp(exp.val) ? class2proc(exp.val) : exp.val );
+        
     }
-    else{
-        return isClassExp(exp) ?  makeOk(class2proc(exp)):
-        isAtomicExp(exp) ? makeOk(exp) :
-        L31ToL3NotProg(exp);
+    else //cexp
+    {
+        if (isClassExp(exp))
+        {
+             return class2proc(exp);
+        }
+        else
+        {
+             return exp
+        }
+        
     }
 }
+
