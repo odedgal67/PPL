@@ -46,12 +46,7 @@ export const L31ToL3 = (exp: Exp | Program): Result<Exp | Program> =>
     }
     return makeOk(exp);
 }
-/*
-export type Exp = DefineExp | CExp;
-export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
-export type CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp | ClassExp;
-export type CExp =  AtomicExp | CompoundExp;
-*/
+
 export const L31ToL3Exp = (exp:Exp):Exp=>
 {
     
