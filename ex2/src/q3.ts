@@ -1,10 +1,9 @@
-import { ClassExp, ProcExp,  Exp, Program, makeIfExp, makeStrExp, makeAppExp, makeVarRef, parseL31Exp, isClassExp, isCExp, makeProgram, isAppExp, makeClassExp, isLitExp, VarRef } from "./L31-ast";
-import { Result, makeFailure, mapResult, makeOk } from "../shared/result";
-import { Binding, VarDecl } from "./L31-ast";
-import { CExp, IfExp, makeBoolExp, makePrimOp, makeProcExp } from "./L31-ast";
-import { makeCompoundSExp } from "../imp/L3-value";
-import { bind, map } from "ramda";
-import { isAtomicExp, isDefineExp, isExp, isProgram, LitExp, makeDefineExp, makeLitExp, makeVarDecl, StrExp } from "./L31-ast";
+import { ClassExp, ProcExp,  Exp, Program, makeIfExp, makeAppExp, makeVarRef, isClassExp, makeProgram, VarRef } from "./L31-ast";
+import { Result, makeOk } from "../shared/result";
+import { Binding } from "./L31-ast";
+import { CExp, makeBoolExp, makePrimOp, makeProcExp } from "./L31-ast";
+import {  map } from "ramda";
+import {  isDefineExp, isExp, isProgram, makeDefineExp, makeVarDecl } from "./L31-ast";
 import { first, rest } from "../shared/list";
 
 /*
@@ -15,7 +14,6 @@ Type: ClassExp => ProcExp
 export const class2proc = (exp: ClassExp): ProcExp =>{
 
    return  makeProcExp(exp.fields,[makeProcExp( [makeVarDecl('msg')],[makeBody(exp.methods )])]);
-   
 }
 export const makeBody = (methods:Binding[]): CExp=>
 {
@@ -25,17 +23,9 @@ export const makeBody = (methods:Binding[]): CExp=>
     }
     const s:VarRef = makeVarRef("'"+ (first(methods).var.var));
     const rands:CExp[] = [makeVarRef('msg'),s];
-    
-    
     return makeIfExp(/*test*/makeAppExp(makePrimOp("eq?"),rands ),/*then*/makeAppExp(first(methods).val,[]) ,/*alt*/makeBody(rest(methods)));
-    
-    
 }
 
-
-
-
-    
 
 /*
 Purpose: Transform L31 AST to L3 AST
@@ -64,22 +54,16 @@ export type CExp =  AtomicExp | CompoundExp;
 */
 export const L31ToL3Exp = (exp:Exp):Exp=>
 {
-    if (isDefineExp(exp))
+    
+    if (isDefineExp(exp)) 
     {
         return makeDefineExp(exp.var, isClassExp(exp.val) ? class2proc(exp.val) : exp.val );
         
     }
     else //cexp
     {
-        if (isClassExp(exp))
-        {
-             return class2proc(exp);
-        }
-        else
-        {
-             return exp
-        }
-        
+        return isClassExp(exp) ? class2proc(exp) :exp
+ 
     }
 }
 

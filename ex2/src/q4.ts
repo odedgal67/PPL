@@ -1,7 +1,7 @@
 
 import { map } from 'ramda';
 import { Result, makeFailure, makeOk, mapResult, isOk, bind } from '../shared/result';
-import {VarDecl,VarRef,ProcExp, Exp, Program, BoolExp, isBoolExp,isNumExp, isStrExp, isVarRef, isProcExp, isIfExp, isAppExp, isPrimOp, isLetExp,isDefineExp, isProgram, NumExp, StrExp, LitExp, CExp, AppExp, LetExp, DefineExp, PrimOp, IfExp } from '../src/L31-ast'
+import {VarDecl,VarRef,ProcExp, Exp, Program, BoolExp, isBoolExp,isNumExp, isStrExp, isVarRef, isProcExp, isIfExp, isAppExp, isPrimOp,isDefineExp, isProgram, NumExp, StrExp, LitExp, CExp, AppExp, LetExp, DefineExp, PrimOp, IfExp } from '../src/L31-ast'
 
 /*
 Purpose: Transform L2 AST to Python program string
@@ -12,7 +12,7 @@ export const l2ToPython = (exp: Exp | Program): Result<string>  =>
 {
     if(isProgram(exp))
     {
-        return bind(mapResult(l2ToPython,exp.exps), exps => makeOk(`${exps.join("\n")}`));
+        return bind(mapResult(l2ToPython,exp.exps), (exps:string[]) => makeOk(`${exps.join("\n")}`));
     }
     const r:Result<string> = 
     isBoolExp(exp) ? valueToStringBool(exp) :
@@ -47,15 +47,8 @@ export const valueToStringVarRef = (exp: VarRef) : Result<string> =>
 }
 export const valueToStringProc = (exp: ProcExp) : Result<string> =>
 {
-    return makeOk(`(lambda ${map( (arg : VarDecl)=> arg.var, exp.args).join(",")} : ${wholeBodyToString(exp.body)})`);
+   return bind(l2ToPython(exp.body[0]),(str:string)=> makeOk(`(lambda ${map( (arg : VarDecl)=> arg.var, exp.args).join(",")} : ${str})`));
 }
-//recursive function to make the whole body a string
-export const wholeBodyToString = (body : CExp[]): string =>
-{
-    const res: Result<string> = l2ToPython(body[0]);
-    return isOk(res) ? res.value : 'never';
-}     
-  
 export const valueToStringApp = (exp: AppExp): Result<string> =>
 {     
     if(isPrimOp(exp.rator))
@@ -65,16 +58,14 @@ export const valueToStringApp = (exp: AppExp): Result<string> =>
         {
             if(res.value === "not")
             {
-                return bind(mapResult(l2ToPython,exp.rands), rands => makeOk(`(not ${rands[0]})`)) ;
+                return bind(mapResult(l2ToPython,exp.rands), (rands:string[]) => makeOk(`(not ${rands[0]})`)) ;
             }
-            const r:Result<string> =  bind(mapResult(l2ToPython, exp.rands), (s:string[])=>makeOk(s.join(` ${res.value} `)));
-            return (isOk(r)) ? makeOk("("+r.value+")") : makeFailure('never');
+            return bind(bind(mapResult(l2ToPython, exp.rands), (s:string[])=>makeOk(s.join(` ${res.value} `))), (str:string)=>makeOk("("+str+")"));
         }
-    } 
+    }
     const res : Result<string> = l2ToPython(exp.rator);
-    
-    if(res.tag==='Ok')
-    {
+    if(isOk(res))
+    {  
         const s:string = `${res.value}(${map( (rand : CExp)=>
             {
              const r:Result<string> = l2ToPython(rand);
@@ -88,7 +79,7 @@ export const valueToStringApp = (exp: AppExp): Result<string> =>
 
 export const valueToStringDefine = (exp: DefineExp): Result<string> =>
 {
-    return isDefineExp(exp) ?  bind(l2ToPython(exp.val),(r:string)=> makeOk(`${exp.var.var} = ${r}`)) : makeFailure('never');
+    return isDefineExp(exp) ?  bind(l2ToPython(exp.val),(str:string)=> makeOk(`${exp.var.var} = ${str}`)) : makeFailure('never');
 }
 export const valueToStringPrimOp = (exp:PrimOp):Result<string> =>
 {
@@ -105,7 +96,7 @@ export const valueToStringIf = (exp:IfExp):Result<string> =>
     const then :Result<string> = l2ToPython(exp.then);
     const test:Result<string> = l2ToPython(exp.test);
     const alt:Result<string> = l2ToPython(exp.alt);
-    return (isOk(then) && isOk(test) && isOk(alt)) ? makeOk(`(${then.value} if ${test.value} else ${alt.value})`) : makeFailure("never10");
+    return (isOk(then) && isOk(test) && isOk(alt)) ? makeOk(`(${then.value} if ${test.value} else ${alt.value})`) : makeFailure("never");
 }
 
 
