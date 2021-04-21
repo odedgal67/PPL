@@ -23,8 +23,15 @@ export const makeBody = (methods:Binding[]): CExp=>
     }
     const s:VarRef = makeVarRef("'"+ (first(methods).var.var));
     const rands:CExp[] = [makeVarRef('msg'),s];
-    return makeIfExp(/*test*/makeAppExp(makePrimOp("eq?"),rands ),/*then*/makeAppExp(first(methods).val,[]) ,/*alt*/makeBody(rest(methods)));
+    const firstMethods = methods[0].val;
+    return makeIfExp(/*test*/makeAppExp(makePrimOp("eq?"),rands ),/*then*/makeAppExp(firstMethods.tag === 'ProcExp' ? checkProc(firstMethods) : first(methods).val,[]) ,/*alt*/makeBody(rest(methods)));
 }
+export const checkProc = (pe:ProcExp) : ProcExp => 
+{
+    const allClassesAfterChecking:CExp[] = map((e)=> e.tag === "ClassExp" ? class2proc(e) : e, pe.body);
+    return makeProcExp(pe.args,allClassesAfterChecking);
+}
+
 
 
 /*
@@ -42,7 +49,6 @@ export const L31ToL3 = (exp: Exp | Program): Result<Exp | Program> =>
     else if (isExp(exp))
     {       
         return makeOk(L31ToL3Exp(exp));
-        
     }
     return makeOk(exp);
 }

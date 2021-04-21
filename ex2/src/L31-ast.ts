@@ -1,10 +1,10 @@
 // ===========================================================
 // AST type models
-import { map, zipWith } from "ramda";
+import { filter, map, zipWith } from "ramda";
 import { makeEmptySExp, makeSymbolSExp, SExpValue, makeCompoundSExp, valueToString } from '../imp/L3-value'
 import { first, second, rest, allT, isEmpty } from "../shared/list";
 import { isArray, isString, isNumericString, isIdentifier } from "../shared/type-predicates";
-import { Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
+import { Result, makeOk, makeFailure, bind, mapResult, safe2, either, isOk } from "../shared/result";
 import { parse as p, isSexpString, isToken } from "../shared/parser";
 import { Sexp, Token } from "s-expression";
 
@@ -256,7 +256,13 @@ const parseClassExp = (fields:Sexp, methods: Sexp[]) : Result<ClassExp> =>{
     const fieldsNamesResult = makeOk(map(makeVarDecl, fields)); //Result<VarDec[]>
 
     const nameOfFunctions = map(a => a[0], methods[0]);//names of the functions
+
+    const nameOfFunctionsResult = mapResult(method => parseL31CExp(second(method)),methods[0]);
     
+    if(!allT(isProcExp, either(nameOfFunctionsResult, a=> a, e=> [])))
+    {
+        return makeFailure('Malformed bindings in "class" expression');
+    }
 
     const bodyOfFunctions = map(a => a[1] , methods[0]) //body of the functions
     const bodyOfFunctionsResult = mapResult(a => parseL31CExp(a), bodyOfFunctions)
