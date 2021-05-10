@@ -1,6 +1,6 @@
 import { add, map, zipWith } from "ramda";
 import { Value } from './L21-value-store';
-import { Result, makeFailure, makeOk, bind, either } from "../shared/result";
+import { Result, makeFailure, makeOk, bind, either, isOk } from "../shared/result";
 
 // ========================================================
 // Box datatype
@@ -17,18 +17,38 @@ export interface Store {
     vals: Box<Value>[];
 }
 
-export const isStore = ...;
-export const makeEmptyStore = ...;
-export const theStore: Store = 
-export const extendStore = (s: Store, val: Value): Store =>
-    // Complete
+export const isStore =  (x: any): x is Store => x.tag === "Store";
+export const makeEmptyStore = (): Store =>
+({tag: "Store", vals:[]});
+
+
+
+export const theStore: Store = makeEmptyStore();
+export const extendStore = (s: Store, val: Value): Store =>///added   /  myabe change/
+{
+    s.vals.concat(makeBox(val));
+    return s;
+
+}    
     
 export const applyStore = (store: Store, address: number): Result<Value> =>
-    // Complete
+{
+    if(address<0 || address>=store.vals.length )
+    {
+        return makeFailure("illegal address");
+    }
+    return makeOk(unbox(store.vals[address]));
+        
+}
 
-    
+
 export const setStore = (store: Store, address: number, val: Value): void => 
-    // Complete
+{
+    if(address>=0 && address<store.vals.length)
+    {
+        setBox(store.vals[address],val);
+    }
+}
 
 
 // ========================================================
@@ -70,10 +90,24 @@ export const applyEnv = (env: Env, v: string): Result<number> =>
     applyExtEnv(env, v);
 
 const applyGlobalEnv = (env: GlobalEnv, v: string): Result<number> => 
-    // Complete
+{
+    const index:number =  unbox(env.vars).indexOf(v);
+    if (index==-1)
+    {
+        return makeFailure("no such variable");
+    }
+    return makeOk(unbox(env.addresses)[index])
+    
+
+
+}
 
 export const globalEnvAddBinding = (v: string, addr: number): void =>
-    // Complete
+{
+    setBox(theGlobalEnv.vars, unbox(theGlobalEnv.vars).concat(v));
+    setBox(theGlobalEnv.addresses,unbox(theGlobalEnv.addresses).concat(addr) );
+    
+}
 
 const applyExtEnv = (env: ExtEnv, v: string): Result<number> =>
     env.vars.includes(v) ? makeOk(env.addresses[env.vars.indexOf(v)]) :
