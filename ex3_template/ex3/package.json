@@ -16,8 +16,8 @@
     "s-expression": "^3.1.1"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.15",
-    "@types/mocha": "^8.2.0",
+    "@types/chai": "^4.2.18",
+    "@types/mocha": "^8.2.2",
     "@types/node": "^14.14.28",
     "@types/ramda": "^0.27.40",
     "chai": "^4.3.0",

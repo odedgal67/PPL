@@ -24,21 +24,17 @@ export const makeEmptyStore = (): Store =>
 
 
 export const theStore: Store = makeEmptyStore();
-export const extendStore = (s: Store, val: Value): Store =>///added   /  myabe change/
+export const extendStore = (s: Store, val: Value): Store =>//Added  
 {
-    s.vals.concat(makeBox(val));
+    s.vals = s.vals.concat([makeBox(val)]);
     return s;
+}  
 
-}    
     
 export const applyStore = (store: Store, address: number): Result<Value> =>
 {
-    if(address<0 || address>=store.vals.length )
-    {
-        return makeFailure("illegal address");
-    }
-    return makeOk(unbox(store.vals[address]));
-        
+    return (address<0 || address>=store.vals.length ) ? makeFailure("illegal address") :
+    makeOk(unbox(store.vals[address]));
 }
 
 
@@ -89,7 +85,7 @@ export const applyEnv = (env: Env, v: string): Result<number> =>
     isGlobalEnv(env) ? applyGlobalEnv(env, v) :
     applyExtEnv(env, v);
 
-const applyGlobalEnv = (env: GlobalEnv, v: string): Result<number> => 
+export const applyGlobalEnv = (env: GlobalEnv, v: string): Result<number> => 
 {
     const index:number =  unbox(env.vars).indexOf(v);
     if (index==-1)
