@@ -21,13 +21,13 @@ const applicativeEval = (exp: CExp, env: Env): Result<Value> =>
     isBoolExp(exp) ? makeOk(exp.val) :
     isStrExp(exp) ? makeOk(exp.val) :
     isPrimOp(exp) ? makeOk(exp) :
-    isVarRef(exp) ?  bind (applyEnv(theGlobalEnv, exp.var), (ad:number) => applyStore(theStore,ad)): 
+    isVarRef(exp) ?  bind (applyEnv(env, exp.var), (ad:number) => applyStore(theStore,ad)): 
     isLitExp(exp) ? makeOk(exp.val as Value) :
     isIfExp(exp) ? evalIf(exp, env) :
     isProcExp(exp) ? evalProc(exp, env) :
     isLetExp(exp) ? evalLet(exp, env) :
     isAppExp(exp) ? safe2((proc: Value, args: Value[]) => applyProcedure(proc, args))(applicativeEval(exp.rator, env), mapResult((rand: CExp) => applicativeEval(rand, env), exp.rands)) :
-    isSetExp(exp) ? evalSet(exp) : 
+    isSetExp(exp) ? evalSet(exp, env) : 
     exp;
 
 export const isTrueValue = (x: Value): boolean =>
@@ -112,10 +112,10 @@ const evalLet = (exp: LetExp, env: Env): Result<Value> =>
         return evalSequence(exp.body, newEnv);
     })
 }
-const evalSet = (exp: SetExp) : Result<Value> =>
+const evalSet = (exp: SetExp, env: Env) : Result<Value> =>
 {
     const variable : VarRef = exp.var;
 
-    return bind(applicativeEval(exp.val, theGlobalEnv),(x:Value) => bind(applyEnv(theGlobalEnv, variable.var), (ad:number) => makeOk(setStore(theStore,ad ,x))));
+    return bind(applicativeEval(exp.val, env),(x:Value) => bind(applyEnv(env, variable.var), (ad:number) => makeOk(setStore(theStore,ad ,x))));
 }
 
