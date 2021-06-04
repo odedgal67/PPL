@@ -113,14 +113,15 @@ async function asyncWaterfallWithRetryHelper2(numOfFails:number, func : (() => P
     let returnValue:any;
     try
     {
-        returnValue =  await func()
+        console.log(func())
+        return await func()
     }
     catch
     {
         if (numOfFails<2)
         {
             new Promise<any> ((resolve, reject)=>{
-                setTimeout(()=>{asyncWaterfallWithRetryHelper(numOfFails+1, func, reject)}, 2000)
+                setTimeout(()=>{asyncWaterfallWithRetryHelper2(numOfFails+1, func, reject)}, 2000)
             })  
         }
         else{
@@ -130,22 +131,22 @@ async function asyncWaterfallWithRetryHelper2(numOfFails:number, func : (() => P
     }
 }
 
-async function asyncWaterfallWithRetryHelper(numOfFails:number, func : ((param:any) => Promise<any>), reject:()=>any)
+async function asyncWaterfallWithRetryHelper(numOfFails:number, func : ((param:any) => Promise<any>), reject:()=>any, returnValue:any)
 {
-    let returnValue:any;
     try
     {
-        returnValue =  await func(returnValue)
+        return await func(returnValue)
     }
     catch
     {
         if (numOfFails<2)
         {
             new Promise<any> ((resolve, reject)=>{
-                setTimeout(()=>{asyncWaterfallWithRetryHelper(numOfFails+1, func, reject)}, 2000)
+                setTimeout(()=>{asyncWaterfallWithRetryHelper(numOfFails+1, func, reject, returnValue)}, 2000)
             })  
         }
-        else{
+        else
+        {
             reject()
         }
         
@@ -154,10 +155,11 @@ async function asyncWaterfallWithRetryHelper(numOfFails:number, func : ((param:a
  export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...((param:any) => Promise<any>)[]]): Promise<any> {
     let numOfFailsFirst:number=0;
     let returnValue:any;
-    asyncWaterfallWithRetryHelper2(0,fns[0],()=>console.log("harahara"))
+    returnValue = asyncWaterfallWithRetryHelper2(0,fns[0],()=>console.log("harahara"))
     fns.slice(1).map(async (func : ((param:any) => Promise<any>))=>{
-        asyncWaterfallWithRetryHelper(0, func, ()=>console.log("hara"))
+        returnValue  = asyncWaterfallWithRetryHelper(0, func, ()=>console.log("hara"),returnValue)
    
     })
     console.log(returnValue);
+    return returnValue;
  }
