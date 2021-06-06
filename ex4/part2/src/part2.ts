@@ -108,58 +108,85 @@ export function makePromisedStore<K, V>(): PromisedStore<K, V> {
 
 // /* 2.4 */
 
-async function asyncWaterfallWithRetryHelper2(numOfFails:number, func : (() => Promise<any>), reject:()=>any)
+async function asyncWaterfallWithRetryHelperFirstFunc(func : (() => Promise<any>)):Promise<any>
 {
-    let returnValue:any;
-    try
-    {
-        console.log(func())
-        return await func()
-    }
-    catch
-    {
-        if (numOfFails<2)
+    let numOfFails = 0
+    return new Promise(async (resolve, reject)=>{
+        try
         {
-            new Promise<any> ((resolve, reject)=>{
-                setTimeout(()=>{asyncWaterfallWithRetryHelper2(numOfFails+1, func, reject)}, 2000)
-            })  
+
+            let res:any = await func()
+            resolve(res)
+            
         }
-        else{
-            reject()
+        catch
+        {
+            while (numOfFails<2)
+            {
+                setTimeout(resolve, 2000)
+                try{
+                    let res:any = await func( )
+                    resolve(res)
+                    break;
+                }
+                catch
+                {
+                    numOfFails++;
+                }
+               
+                
+            }
+            
+            reject()            
         }
         
-    }
+    })
+    
 }
 
-async function asyncWaterfallWithRetryHelper(numOfFails:number, func : ((param:any) => Promise<any>), reject:()=>any, returnValue:any)
+async function asyncWaterfallWithRetryHelper(func : ((param:any) => Promise<any>), returnValue:any):Promise<any>
 {
-    try
-    {
-        return await func(returnValue)
-    }
-    catch
-    {
-        if (numOfFails<2)
+    let numOfFails = 0
+    return new Promise(async (resolve, reject)=>{
+        try
         {
-            new Promise<any> ((resolve, reject)=>{
-                setTimeout(()=>{asyncWaterfallWithRetryHelper(numOfFails+1, func, reject, returnValue)}, 2000)
-            })  
+
+            let res:any = await func(await returnValue)
+            resolve(res)
+            
         }
-        else
+        catch
         {
-            reject()
+            while (numOfFails<2)
+            {
+                setTimeout(resolve, 2000)
+                try{
+                    let res:any = await func(await returnValue)
+                    resolve(res)
+                    break;
+                }
+                catch
+                {
+                    numOfFails++;
+                }
+               
+                
+            }
+            
+            reject()            
         }
         
-    }
+    })
+    
 }
+
  export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...((param:any) => Promise<any>)[]]): Promise<any> {
-    let numOfFailsFirst:number=0;
-    let returnValue:any;
-    returnValue = asyncWaterfallWithRetryHelper2(0,fns[0],()=>console.log("harahara"))
-    fns.slice(1).map(async (func : ((param:any) => Promise<any>))=>{
-        returnValue  = asyncWaterfallWithRetryHelper(0, func, ()=>console.log("hara"),returnValue)
+    let returnValue:Promise<any>;
+    returnValue =await asyncWaterfallWithRetryHelperFirstFunc(fns[0]) ;
+    fns.slice(1).map( (func : ((param:any) => Promise<any>))=>{
+        returnValue  = asyncWaterfallWithRetryHelper(func,returnValue)
    
     })
-    console.log(returnValue);
     return returnValue;
+   
  }

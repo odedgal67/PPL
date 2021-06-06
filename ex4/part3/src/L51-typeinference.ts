@@ -9,6 +9,7 @@ import * as T from "./TExp51";
 import { allT, first, rest, isEmpty } from "../shared/list";
 import { isNumber, isString } from '../shared/type-predicates';
 import { Result, makeFailure, makeOk, bind, safe2, zipWithResult, mapResult } from "../shared/result";
+import { isCompoundSexp } from "../shared/parser";
 
 // Purpose: Make type expressions equivalent by deriving a unifier
 // Return an error if the types are not unifiable.
@@ -239,9 +240,64 @@ export const typeofLetrec = (exp: A.LetrecExp, tenv: E.TEnv): Result<T.TExp> => 
 // Typing rule:
 //   (define (var : texp) val)
 // TODO - write the typing rule for define-exp
+
+/*
+Typing rule define:
+For every: type environment _Tenv,
+variable _x1
+expressions _e1 and
+type expressions _S1, _U1:
+If _Tenv ... |- ...
+Then _Tenv |- (define _x1 _e1) : ...
+*/
+
 export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-    return makeFailure('TODO typeofDefine');
+
+    if (E.isExtendTEnv(tenv))
+    {
+        const vars:string[] =  tenv.vars
+        if (vars.includes(exp.var.var))
+        {
+            return makeFailure("variable already define");
+        }
+        E.makeExtendTEnv(tenv.vars.concat(exp.var.var), tenv.texps.concat(exp.var.texp), tenv)
+    }
+    else
+    {
+        E.makeExtendTEnv([exp.var.var], [exp.var.texp], tenv)
+    }
+    
+    
+    return makeOk(T.makeVoidTExp());
 };
+/*
+export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => { // MIGHT NOT WORK
+    if(E.isExtendTEnv(tenv)) {
+        if(A.isProcExp(exp.val)) {
+            let argsTEs = R.map((vd) => vd.texp, exp.val.args);
+            let returnTEs = exp.val.returnTE;
+            InsertType(tenv, T.makeProcTExp(argsTEs, returnTEs), exp.var.var);
+            return bind(typeofExp(exp.val, tenv), (x:T.TExp) => makeOk(T.makeVoidTExp()));
+        } else if(A.isClassExp(exp.val)) {
+            //E.InsertType(tenv, T.makeProcTExp(exp.val.fields.map((v) => v.texp), exp.val.typeName), exp.var.var);
+            return bind(typeofClass(exp.val, tenv), (x: T.TExp) => {
+                InsertType(tenv, x, exp.var.var);
+                return makeOk(T.makeVoidTExp());
+            })
+        } else return bind(typeofExp(exp.val, tenv), (x: T.TExp) => {
+            InsertType(tenv, x, exp.var.var);
+            return makeOk(T.makeVoidTExp());
+        })
+    } else return makeFailure("wtf define");
+}
+export const InsertType = (tenv: E.ExtendTEnv, type: T.TExp, v: string): void => {
+    if(tenv.vars.indexOf(v)!==-1)
+        tenv.texps[tenv.vars.indexOf(v)] = type;
+    else {
+        tenv.texps.push(type);
+        tenv.vars.push(v);
+    }
+}*/
 
 // Purpose: compute the type of a program
 // Typing rule:
@@ -250,25 +306,69 @@ export const typeofProgram = (exp: A.Program, tenv: E.TEnv): Result<T.TExp> =>
     // similar to typeofExps but threads variables into tenv after define-exps
     isEmpty(exp.exps) ? makeFailure("Empty program") :
     typeofProgramExps(first(exp.exps), rest(exp.exps), tenv);
-
+/*
+    const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => // MIGHT NOT WORK
+    exps.length != 0 ? bind(typeofExp(exp, tenv), () => typeofProgramExps(exps[0], exps.slice(1), tenv)) : typeofExp(exp, tenv);
+*/
 const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => 
-    makeFailure('TODO typeofProgramExps');
+{
+    
+    if (A.isDefineExp(exp))
+    {
+        return bind(typeofDefine(exp, tenv), (()=> typeofProgramExps(first(exps), rest(exps), tenv)))
+        
+    }
+    else 
+    {
+        return bind(typeofExp(exp, tenv), (()=> typeofProgramExps(first(exps), rest(exps), tenv)))
+    }
 
+}
 
 // Purpose: compute the type of a literal expression
 //      - Only need to cover the case of Symbol and Pair
 //      - for a symbol - record the value of the symbol in the SymbolTExp
 //        so that precise type checking can be made on ground symbol values.
 export const typeofLit = (exp: A.LitExp): Result<T.TExp> =>
-    makeFailure(`TODO typeofLit`);
-
+{
+    if (V.isSymbolSExp(exp.val))
+    {
+        return makeOk(T.makeSymbolTExp(exp.val))
+    }
+    else if (isCompoundSexp(exp.val))
+    {
+        return makeOk(T.makePairTExp())
+    }
+    else
+    {
+        return makeFailure("not pair or symbol")
+    }
+}
 // Purpose: compute the type of a set! expression
 // Typing rule:
 //   (set! var val)
 // TODO - write the typing rule for set-exp
+/*
 export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-    return makeFailure('TODO typeofSet');
+    if (E.isExtendTEnv(tenv))
+    {
+        const vars: string[] = tenv.vars
+        if(vars.includes(exp.var.var) )
+        {
+
+            return bind(E.applyTEnv(tenv, exp.var.var), (setType : T.TExp)=> bind(typeofExp(exp.val, tenv), (tenvType:T.TExp)=>T.equivalentTEs(setType, tenvType) ?
+            makeOk(T.makeVoidTExp()): makeFailure("invalid set!") ))
+        }
+        
+    }
+    return makeFailure("no such variable")
+};*/
+
+export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
+    return bind(E.applyTEnv(tenv, exp.var.var), (x: T.TExp) => bind(typeofExp(exp.val, tenv), (y: T.TExp) => T.equivalentTEs(x,y)? 
+        makeOk(T.makeVoidTExp()) : makeFailure("bad set!")));
 };
+
 
 // Purpose: compute the type of a class-exp(type fields methods)
 // Typing rule:
