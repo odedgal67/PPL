@@ -260,18 +260,21 @@ export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp>
         {
             return makeFailure("variable already define");
         }
-        E.makeExtendTEnv(tenv.vars.concat(exp.var.var), tenv.texps.concat(exp.var.texp), tenv)
+        if(A.isProcExp(exp.val))
+        {
+            tenv.vars.push(exp.var.var);
+        }
+        tenv =  E.makeExtendTEnv(tenv.vars.concat(exp.var.var), tenv.texps.concat(exp.var.texp), tenv)
     }
     else
     {
-        E.makeExtendTEnv([exp.var.var], [exp.var.texp], tenv)
+       tenv =  E.makeExtendTEnv([exp.var.var], [exp.var.texp], tenv)
     }
-    
     
     return makeOk(T.makeVoidTExp());
 };
-/*
-export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => { // MIGHT NOT WORK
+
+/*export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => { // MIGHT NOT WORK
     if(E.isExtendTEnv(tenv)) {
         if(A.isProcExp(exp.val)) {
             let argsTEs = R.map((vd) => vd.texp, exp.val.args);
@@ -306,17 +309,17 @@ export const typeofProgram = (exp: A.Program, tenv: E.TEnv): Result<T.TExp> =>
     // similar to typeofExps but threads variables into tenv after define-exps
     isEmpty(exp.exps) ? makeFailure("Empty program") :
     typeofProgramExps(first(exp.exps), rest(exp.exps), tenv);
-/*
-    const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => // MIGHT NOT WORK
+
+    /*const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => // MIGHT NOT WORK
     exps.length != 0 ? bind(typeofExp(exp, tenv), () => typeofProgramExps(exps[0], exps.slice(1), tenv)) : typeofExp(exp, tenv);
-*/
+    */
+
 const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => 
 {
     
     if (A.isDefineExp(exp))
     {
         return bind(typeofDefine(exp, tenv), (()=> typeofProgramExps(first(exps), rest(exps), tenv)))
-        
     }
     else 
     {
@@ -344,16 +347,18 @@ export const typeofLit = (exp: A.LitExp): Result<T.TExp> =>
         return makeFailure("not pair or symbol")
     }
 }
+
+
 // Purpose: compute the type of a set! expression
 // Typing rule:
 //   (set! var val)
 // TODO - write the typing rule for set-exp
-/*
+
 export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
     if (E.isExtendTEnv(tenv))
     {
         const vars: string[] = tenv.vars
-        if(vars.includes(exp.var.var) )
+        if(vars.includes(exp.var.var))
         {
 
             return bind(E.applyTEnv(tenv, exp.var.var), (setType : T.TExp)=> bind(typeofExp(exp.val, tenv), (tenvType:T.TExp)=>T.equivalentTEs(setType, tenvType) ?
@@ -362,12 +367,12 @@ export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
         
     }
     return makeFailure("no such variable")
-};*/
+};
 
-export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
+/*export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
     return bind(E.applyTEnv(tenv, exp.var.var), (x: T.TExp) => bind(typeofExp(exp.val, tenv), (y: T.TExp) => T.equivalentTEs(x,y)? 
         makeOk(T.makeVoidTExp()) : makeFailure("bad set!")));
-};
+};*/
 
 
 // Purpose: compute the type of a class-exp(type fields methods)

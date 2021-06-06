@@ -8,7 +8,7 @@ import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isNum
 import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "../imp/TEnv";
 import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
          parseTE, unparseTExp,
-         BoolTExp, NumTExp, StrTExp, TExp, VoidTExp } from "./TExp51";
+         BoolTExp, NumTExp, StrTExp, TExp, VoidTExp, makePairTExp } from "./TExp51";
 import { isEmpty, allT, first, rest } from '../shared/list';
 import { Result, makeFailure, bind, makeOk, safe3, safe2, zipWithResult } from '../shared/result';
 import { parse as p } from "../shared/parser";
@@ -95,6 +95,9 @@ export const typeofPrim = (p: PrimOp): Result<TExp> =>
     (p.op === 'string=?') ? parseTE('(T1 * T2 -> boolean)') :
     (p.op === 'display') ? parseTE('(T -> void)') :
     (p.op === 'newline') ? parseTE('(Empty -> void)') :
+    (p.op === 'cons') ? parseTE('(T1 * T2 -> cons)'):
+    (p.op === 'car') ? parseTE('cons -> T'):
+    (p.op === 'cdr') ? parseTE('cons -> T'):
     makeFailure(`Primitive not yet implemented: ${p.op}`);
 
 // Purpose: compute the type of an if-exp
