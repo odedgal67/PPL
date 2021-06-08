@@ -6,15 +6,16 @@
 // typed class construct
 
 import { ExecOptions } from "child_process";
-import { concat, chain, join, map, zipWith } from "ramda";
+import { concat, chain, join, map, zipWith, filter } from "ramda";
 import { Sexp, Token } from 's-expression';
 import { isCompoundSExp, isEmptySExp, isSymbolSExp, makeCompoundSExp, makeEmptySExp, makeSymbolSExp, SExpValue, valueToString } from '../imp/L5-value';
+import { TEnv } from "../imp/TEnv";
 import { allT, first, rest, second, isEmpty } from '../shared/list';
 import { parse as p, isToken, isSexpString, isCompoundSexp } from "../shared/parser";
-import { Result, bind, makeFailure, mapResult, makeOk, safe2, safe3 } from "../shared/result";
+import { Result, bind, makeFailure, mapResult, makeOk, safe2, safe3, isOk } from "../shared/result";
 import { isArray, isString, isNumericString, isIdentifier } from "../shared/type-predicates";
 import { makeTEnvFromClasses } from "./L51-typeinference";
-import { isTVar, makeFreshTVar, makeTVar, parseTExp, unparseTExp, TVar, TExp } from './TExp51';
+import { isTVar, makeFreshTVar, makeTVar, parseTExp, unparseTExp, TVar, TExp, isProcTExp } from './TExp51';
 import { makeClassTExp, ClassTExp } from "./TExp51";
 
 /*
@@ -332,6 +333,7 @@ const parseGoodSetExp = (variable: Sexp, val: Sexp): Result<SetExp> =>
 
 // L51
 // classexp has the shape: (class [: typeName]? (varDecl...) (binding...))
+
 const parseClassExp = (params: Sexp[]): Result<ClassExp> => 
     params.length == 2 ? parseGoodClassExp(makeFreshTVar().var, params[0], params[1]) :
     (params.length != 4) || (params[0] != ':') ? makeFailure(`class must have shape (class [: <type>]? <fields> <methods>) - got ${params.length} params instead`) :
@@ -339,40 +341,29 @@ const parseClassExp = (params: Sexp[]): Result<ClassExp> =>
 
 const parseGoodClassExp = (typeName: Sexp, varDecls: Sexp, bindings: Sexp): Result<ClassExp> =>
 {
-   //makeClassExp()
-   if(!isCompoundSexp(varDecls))
+    //check correctness of each part of the class
+   if(isString(typeName) && isCompoundSexp(varDecls) && isCompoundSexp(bindings) && isGoodBindings(bindings)) 
    {
-       return makeFailure("Wrong varDecls");
+        
+        return bind(parseBindings(bindings), (binds:Binding[]) =>  makeOk(makeClassExp(makeTVar(typeName), getVarDecl(varDecls),binds)))
+          
    }
-   let parsedVarDecl = mapResult((va)=>bind(parseVarDecl(va), (v)=>{return makeOk(v)}),varDecls);
-   if(!isCompoundSExp(bindings) || !isGoodBindings(bindings))
-   {
-       return  makeFailure("Wrong binding");
-   }
-    let parsedBinding  = parseBindings(bindings);
-   if(!isString(typeName))
-   {
-       return makeFailure("Wrong typeName");
-
-   }
-    return bind(parsedVarDecl , (pvd)=>bind(parsedBinding, (pb)=> makeOk(makeClassExp(makeTVar(typeName),pvd, pb))));
+   return makeFailure("invalid class exp")
+    
 }
-
-const parseGoodClassExp = (typeName: Sexp, varDecls: Sexp, bindings: Sexp): Result<ClassExp> => {
-    if(isString(typeName) && isCompoundSexp(varDecls) && isCompoundSexp(bindings) && isGoodBindings(bindings)) {
-        let bindingRes = parseBindings(bindings);
-        if(isOk(bindingRes)){
-            let zaza = bindingRes.value;
-            let fields = varDecls.map((x:Sexp) => {
-                let decls = parseVarDecl(x);
-                if(isOk(decls))
-                    return decls.value;
-            });
-            let xaxa = fields.filter(isVarDecl);
-            return makeOk(makeClassExp(makeTVar(typeName), xaxa, zaza));
-        }
+//for eacg var decl in varDecl make parse and chexked if the parsed is a varDecl
+const getVarDecl = (varDecls: Sexp):VarDecl[]=>
+{
+    if(isCompoundSexp(varDecls))
+    {
+        let parsedVarDecl : (VarDecl | undefined)[]= map((se:Sexp)=>{
+            const parsedVd:Result<VarDecl> = parseVarDecl(se)
+            if(isOk(parsedVd))
+                return parsedVd.value
+        },varDecls)
+        return parsedVarDecl.filter(isVarDecl)
     }
-    return makeFailure("wtf class");
+    return []//alredy checked in main func that varDecl is compund s exppression
 }
 
 // sexps has the shape (quote <sexp>)
@@ -485,54 +476,35 @@ const unparseClassExp = (ce: ClassExp, unparseWithTVars?: boolean): Result<strin
 // L51: Collect named types in AST
 // Collect class expressions in parsed AST so that they can be passed to the type inference module
 
-gfh
+
 export const parsedToClassExps = (p: Parsed): ClassExp[] => 
     {
-        let classExps :ClassExp[] =[];
+        let classExps :ClassExp[] =[];//class exps to return 
         if (isProgram(p))
         {
             map((exp:Exp)=>{parsedToClassExps(exp)},p.exps)
         }
         else
         {
-            if(isDefineExp(p))
-            {
-                expsToClassExps( p.val)
-                
-            }
-            if(isClassExp(p))
-            {   
-                classExps.push(p)
-            }
+             parsedToClassExpsHelper(p, classExps)
         }
-
-        
         return classExps;
     }
-    export const parsedToClassExps = (p: Parsed): ClassExp[] => {
-        let classes = Array<ClassExp>();
-        if(isProgram(p)){
-            p.exps.map((currClass : Exp) => {
-                expsToClassExp(currClass, classes);
-            })
-        }
-        else
-            expsToClassExp(p, classes);
-        //console.log(classes);
-        return classes;
+    //Division into cases by exp's type
+    export const parsedToClassExpsHelper = (p: Parsed, ans:ClassExp[]): void => 
+    {
+        isIfExp(p) ? ( parsedToClassExpsHelper(p.alt, ans), parsedToClassExpsHelper(p.then, ans) ): 
+        isLetExp(p) ? map((b: CExp) => parsedToClassExpsHelper(b ,ans), p.body)  : 
+        isLetrecExp(p) ? map((b: CExp) => parsedToClassExpsHelper(b ,ans), p.body)  : 
+        isProcExp(p) ? map((b:CExp)=>parsedToClassExpsHelper(b, ans),p.body): 
+        isSetExp(p) ?  parsedToClassExpsHelper(p.val, ans): 
+        isClassExp(p) ? ans.concat(p) : 
+        isDefineExp(p) ? parsedToClassExpsHelper(p.val, ans):
+        p
+        
+        
     }
-    
-    const expsToClassExp = (e: Exp, prevExps: ClassExp[]) : void => {
-        isIfExp(e) ? traverseIf(e, prevExps) :
-        isProcExp(e) ? e.body.map((exp: CExp) => expsToClassExp(exp ,prevExps)) :
-        isLetExp(e) ? e.body.map((exp: CExp) => expsToClassExp(exp ,prevExps)) :
-        isLetrecExp(e) ? e.body.map((exp: CExp) => expsToClassExp(exp ,prevExps)):
-        isAppExp(e) ? e.rands.map((exp: CExp) => expsToClassExp(exp, prevExps)) :
-        isSetExp(e) ? expsToClassExp(e.val, prevExps) :
-        isDefineExp(e) ? expsToClassExp(e.val, prevExps) :
-        isClassExp(e) ? prevExps.push(e) :
-        e;
-    }
+  
 // L51 
 export const classExpToClassTExp = (ce: ClassExp): ClassTExp => 
     makeClassTExp(ce.typeName.var, map((binding: Binding) => [binding.var.var, binding.var.texp], ce.methods));

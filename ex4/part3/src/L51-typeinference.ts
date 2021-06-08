@@ -1,3 +1,4 @@
+
 // L5-typeinference
 
 import * as R from "ramda";
@@ -8,7 +9,7 @@ import * as E from "../imp/TEnv";
 import * as T from "./TExp51";
 import { allT, first, rest, isEmpty } from "../shared/list";
 import { isNumber, isString } from '../shared/type-predicates';
-import { Result, makeFailure, makeOk, bind, safe2, zipWithResult, mapResult } from "../shared/result";
+import { Result, makeFailure, makeOk, bind, safe2, zipWithResult, mapResult, isOk } from "../shared/result";
 import { isCompoundSexp } from "../shared/parser";
 
 // Purpose: Make type expressions equivalent by deriving a unifier
@@ -102,10 +103,15 @@ const checkNoOccurrence = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true> =
 // Initialize the TEnv with all defined classes 
 // so that the user defined types are known to the type inference system.
 // For each class (class : typename ...) add a pair <class.typename classTExp> to TEnv
+
 export const makeTEnvFromClasses = (parsed: A.Parsed): E.TEnv => {
-    let classExps =A.parsedToClassExps
-    return E.makeEmptyTEnv();
+    let emptyEnv:E.EmptyTEnv = E.makeEmptyTEnv();
+    let parsedClassExps:A.ClassExp[] = A.parsedToClassExps(parsed)//parse to class exps
+    let typeNames:T.TVar[] = R.map((parsedClass:A.ClassExp)=>parsedClass.typeName,parsedClassExps)//array of class names's type
+    //make new environment with the  class names, types of class names, and empty environment
+    return E.makeExtendTEnv(R.map((tn:T.TVar)=>{return tn.var},typeNames ), typeNames, emptyEnv)
 }
+
 
 // Purpose: Compute the type of a concrete expression
 export const inferTypeOf = (concreteExp: string): Result<string> =>
@@ -240,7 +246,6 @@ export const typeofLetrec = (exp: A.LetrecExp, tenv: E.TEnv): Result<T.TExp> => 
 // Typing rule:
 //   (define (var : texp) val)
 // TODO - write the typing rule for define-exp
-
 /*
 Typing rule define:
 For every: type environment _Tenv,
@@ -251,56 +256,13 @@ If _Tenv ... |- ...
 Then _Tenv |- (define _x1 _e1) : ...
 */
 
+
 export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-
-    if (E.isExtendTEnv(tenv))
-    {
-        const vars:string[] =  tenv.vars
-        if (vars.includes(exp.var.var))
-        {
-            return makeFailure("variable already define");
-        }
-        if(A.isProcExp(exp.val))
-        {
-            tenv.vars.push(exp.var.var);
-        }
-        tenv =  E.makeExtendTEnv(tenv.vars.concat(exp.var.var), tenv.texps.concat(exp.var.texp), tenv)
-    }
-    else
-    {
-       tenv =  E.makeExtendTEnv([exp.var.var], [exp.var.texp], tenv)
-    }
+    const extendedEnv:E.TEnv = E.makeExtendTEnv([exp.var.var], [exp.var.texp], tenv)//add new type to the environment
+    const equalVal :Result<true>   = bind(typeofExp(exp.val, extendedEnv), (toe:T.TExp)=>checkEqualType(toe,exp.var.texp, exp ))//make types equal
+    return bind(equalVal,(isEqual:true)=>makeOk(T.makeVoidTExp()))
     
-    return makeOk(T.makeVoidTExp());
 };
-
-/*export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => { // MIGHT NOT WORK
-    if(E.isExtendTEnv(tenv)) {
-        if(A.isProcExp(exp.val)) {
-            let argsTEs = R.map((vd) => vd.texp, exp.val.args);
-            let returnTEs = exp.val.returnTE;
-            InsertType(tenv, T.makeProcTExp(argsTEs, returnTEs), exp.var.var);
-            return bind(typeofExp(exp.val, tenv), (x:T.TExp) => makeOk(T.makeVoidTExp()));
-        } else if(A.isClassExp(exp.val)) {
-            //E.InsertType(tenv, T.makeProcTExp(exp.val.fields.map((v) => v.texp), exp.val.typeName), exp.var.var);
-            return bind(typeofClass(exp.val, tenv), (x: T.TExp) => {
-                InsertType(tenv, x, exp.var.var);
-                return makeOk(T.makeVoidTExp());
-            })
-        } else return bind(typeofExp(exp.val, tenv), (x: T.TExp) => {
-            InsertType(tenv, x, exp.var.var);
-            return makeOk(T.makeVoidTExp());
-        })
-    } else return makeFailure("wtf define");
-}
-export const InsertType = (tenv: E.ExtendTEnv, type: T.TExp, v: string): void => {
-    if(tenv.vars.indexOf(v)!==-1)
-        tenv.texps[tenv.vars.indexOf(v)] = type;
-    else {
-        tenv.texps.push(type);
-        tenv.vars.push(v);
-    }
-}*/
 
 // Purpose: compute the type of a program
 // Typing rule:
@@ -309,44 +271,50 @@ export const typeofProgram = (exp: A.Program, tenv: E.TEnv): Result<T.TExp> =>
     // similar to typeofExps but threads variables into tenv after define-exps
     isEmpty(exp.exps) ? makeFailure("Empty program") :
     typeofProgramExps(first(exp.exps), rest(exp.exps), tenv);
-
-    /*const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => // MIGHT NOT WORK
-    exps.length != 0 ? bind(typeofExp(exp, tenv), () => typeofProgramExps(exps[0], exps.slice(1), tenv)) : typeofExp(exp, tenv);
-    */
-
+    
 const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => 
 {
-    
+    if (exps.length==0)//there is only sole exp
+    {
+        return typeofExp(exp,tenv)
+    }
+    return bind(typeofExp(exp, tenv), (toe:T.TExp)=>{
     if (A.isDefineExp(exp))
     {
-        return bind(typeofDefine(exp, tenv), (()=> typeofProgramExps(first(exps), rest(exps), tenv)))
+        return typeofProgramExps(first(exps), rest(exps), E.makeExtendTEnv([exp.var.var], [exp.var.texp], tenv))//add the type to the environmrnt and call recursion for the rest
+        
     }
     else 
     {
-        return bind(typeofExp(exp, tenv), (()=> typeofProgramExps(first(exps), rest(exps), tenv)))
+       return typeofProgramExps(first(exps), rest(exps), tenv)
     }
 
+})
+
+    
 }
 
 // Purpose: compute the type of a literal expression
 //      - Only need to cover the case of Symbol and Pair
 //      - for a symbol - record the value of the symbol in the SymbolTExp
 //        so that precise type checking can be made on ground symbol values.
+
 export const typeofLit = (exp: A.LitExp): Result<T.TExp> =>
 {
     if (V.isSymbolSExp(exp.val))
     {
         return makeOk(T.makeSymbolTExp(exp.val))
     }
-    else if (isCompoundSexp(exp.val))
+    else if (V.isCompoundSExp(exp.val))
     {
         return makeOk(T.makePairTExp())
     }
     else
     {
-        return makeFailure("not pair or symbol")
+        return makeFailure("invalid type of lit")
     }
 }
+
 
 
 // Purpose: compute the type of a set! expression
@@ -355,24 +323,15 @@ export const typeofLit = (exp: A.LitExp): Result<T.TExp> =>
 // TODO - write the typing rule for set-exp
 
 export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-    if (E.isExtendTEnv(tenv))
-    {
-        const vars: string[] = tenv.vars
-        if(vars.includes(exp.var.var))
-        {
-
-            return bind(E.applyTEnv(tenv, exp.var.var), (setType : T.TExp)=> bind(typeofExp(exp.val, tenv), (tenvType:T.TExp)=>T.equivalentTEs(setType, tenvType) ?
-            makeOk(T.makeVoidTExp()): makeFailure("invalid set!") ))
-        }
-        
-    }
-    return makeFailure("no such variable")
+    //compute the type of exp's var and val ans check if they equal
+    const equalType:Result<true> = bind(typeofExp(exp.var, tenv), 
+    (toe1:T.TExp)=> bind(typeofExp(exp.val, tenv), (toe2:T.TExp)=>checkEqualType(toe1, toe2, exp)))
+    
+    return isOk(equalType) ? makeOk(T.makeVoidTExp()) : makeFailure("incorrect type of set")
 };
 
-/*export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-    return bind(E.applyTEnv(tenv, exp.var.var), (x: T.TExp) => bind(typeofExp(exp.val, tenv), (y: T.TExp) => T.equivalentTEs(x,y)? 
-        makeOk(T.makeVoidTExp()) : makeFailure("bad set!")));
-};*/
+
+
 
 
 // Purpose: compute the type of a class-exp(type fields methods)
@@ -382,6 +341,28 @@ export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
 //      ...
 //      type<method_k>(class-tenv) = mk
 // Then type<class(type fields methods)>(tend) = = [t1 * ... * tn -> type]
+
 export const typeofClass = (exp: A.ClassExp, tenv: E.TEnv): Result<T.TExp> => {
-    return makeFailure("TODO typeofClass");
-};
+    let methodsType:[string, T.TExp][] = [];
+    let ansEnv = E.makeExtendTEnv([],[],tenv)
+
+    //add al fiels to the new environment by their name and type (if it doesnt exist)
+    R.map((vd:A.VarDecl)=>{
+        let index = ansEnv.vars.indexOf(vd.var)
+        index!==-1 ? ansEnv.texps[index] = vd.texp : 
+        (ansEnv.texps.push(vd.texp), ansEnv.vars.push(vd.var) )
+    },exp.fields)
+
+
+    //add al methods to the new environment by their name and type (if it doesnt exist)
+    R.map((method:A.Binding)=>{
+        let toe:Result<T.TExp> = typeofExp(method.val,ansEnv )
+        isOk(toe) ?  methodsType.push([method.var.var, toe.value]) : makeFailure("invalid type of exp")
+        
+    },exp.methods)
+    
+    let fieldsTypeExp :T.TExp[] = R.map((vd:A.VarDecl)=>vd.texp,exp.fields)
+    
+    return makeOk(T.makeProcTExp(fieldsTypeExp, T.makeClassTExp(exp.typeName.var, methodsType)))//make class exp with class name and class methods
+    
+}

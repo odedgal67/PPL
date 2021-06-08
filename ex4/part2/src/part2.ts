@@ -132,14 +132,11 @@ async function asyncWaterfallWithRetryHelperFirstFunc(func : (() => Promise<any>
                 catch
                 {
                     numOfFails++;
-                }
-               
-                
+                }  
             }
             
             reject()            
         }
-        
     })
     
 }
@@ -153,7 +150,6 @@ async function asyncWaterfallWithRetryHelper(func : ((param:any) => Promise<any>
 
             let res:any = await func(await returnValue)
             resolve(res)
-            
         }
         catch
         {
@@ -174,10 +170,8 @@ async function asyncWaterfallWithRetryHelper(func : ((param:any) => Promise<any>
             }
             
             reject()            
-        }
-        
-    })
-    
+        }    
+    }) 
 }
 
  export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...((param:any) => Promise<any>)[]]): Promise<any> {
